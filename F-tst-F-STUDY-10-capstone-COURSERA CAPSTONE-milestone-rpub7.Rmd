@@ -1,0 +1,126 @@
+
+---
+title: "Coursrea Data Science Capstone: Milestone"
+author: "Alex Sickert"
+date: "September 5, 2016"
+output: html_document
+---
+
+
+## Loading and preprocessing the data
+
+The text files are quite large and some initial analysis showed that the processing times are very long and not practical for exploratory analusis. Therefore, only a subset of data is being used here. Only one text file (Twitter) is being used ond of this only 10,000 rows. 
+
+Precondition: set the working directory to your directory by using setwd();
+
+```{r, echo=TRUE,  message=F, warning=F}
+library(tm)
+library(slam)
+library(RWeka)
+library(parallel)
+library(ggplot2) 
+library(dplyr)
+
+options(mc.cores= detectCores() )
+
+conn <- file("~/en_US.twitter.txt",open="r")  # Precondition: set the working directory to your directory by using 
+data <-readLines(conn)
+dataPart <- sample(data, 10000, replace = FALSE, prob = NULL)
+
+```
+
+
+Then we create the corpus out of the initial array of text fragments. In addition text is converted into lower case, numbers are removed as well as puncutation. 
+
+```{r, echo=TRUE, message=F, warning=F}
+corpus <- Corpus(VectorSource(dataPart)) # create corpus for TM processing
+corpus <- tm_map(corpus, content_transformer(tolower))  #we do this only for English, for German it would not be a good idea 
+corpus <- tm_map(corpus, removeNumbers) # we are not interested in numbers
+corpus <- tm_map(corpus, removePunctuation) #punctuation does not play a role in our case
+corpus <- tm_map(corpus, stripWhitespace)  #a further cleanup
+corpus <- tm_map(corpus, PlainTextDocument)   
+
+```
+
+##  What are the frequencies of n-grams with n=1 to 4 in the dataset?
+
+In order to process the various ngrams a function that can handle various ngrams is being created. This function also creates plots. 
+
+The assumption is that there are rather few words and ngrams that have a high frequency. Two graphs are being created: one that shows the frequency distribution for the top 500 ngrams and one that shows the top 30 ngrams including the text of the ngrams themselves. 
+
+```{r, echo=TRUE, message=F, warning=F}
+
+processNGram <- function(corpus, ngram){
+  
+  BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = ngram, max = ngram))
+  tdm <- TermDocumentMatrix(corpus, control = list(tokenize = BigramTokenizer))
+
+  temp <- row_sums(tdm)
+  df <- as.data.frame(temp)
+  df$Words <- row.names(df)
+
+  names(df) <- c('Frequency','Words')
+  rownames(df) <- NULL
+
+  text <- paste("Length of dataframe for the ngram with n =", ngram, sep=" ")
+  text <- paste(text, " has a length of =", sep=" ")
+  text <- paste(text, nrow(df), sep=" ")
+  print(text) 
+  
+  df <- transform(df, Words = reorder(Words, Frequency))
+  df <- arrange(df, desc(Frequency))
+
+  title <- paste("Frequency of n-grams for for the top 500 frequencies with n=", ngram, sep=" ")
+  plot(df$Frequency[1:500], main = title, ylab = "Frequency", xlab = "Index and Order in sorted data frame", type="l")
+
+
+  
+  title <- paste("Top 30 n-grams for n=", ngram, sep=" ")
+  
+  print(ggplot(df[1:30,], aes(Words, Frequency)) +
+  geom_bar(stat = 'identity') + coord_flip() +
+  ggtitle(title) +  xlab(NULL))
+  
+}
+
+
+# create the plots for each ngram 
+for (i in 1:4){
+  processNGram(corpus, i)
+}
+ 
+
+```
+
+
+Findings and Considerations
+
+### Data cleansing
+
+During the data cleansing all punctuation was removed. This can introduce inaccuracies in the frequencies of n-grams. Example: Consider two sentences "I love you. Good night!" Then the cleansing converts is into "I love you good night" and subsequently a ngram "love you good" would be crated which is a rather unlikely combination of words. Therefore, the text should be split up first by sentences and then the sentences should be processed individually. Only afterwards the ngrams should be aggregated. 
+It can also be seen that the word "dont" has a high frequency. But this word does not exist. The apostrophe got either lost via data cleansing or many twitter users deliberately don't write it. It needs to be decided how to proceed with the issue. For example, the application could convert later on all "dont" into "don't".
+
+### Bad words / swear words 
+
+There are dictionaries in the internet that of offensive and other words that should not get predicted. 
+Two examples are http://www.bannedwordlist.com/lists/swearWords.txt  and http://www.cs.cmu.edu/~biglou/resources/bad-words.txt 
+The function tm_map(corpus, removeWords, list_of_words)
+Allows to remove such words. But the question is if this command simply deletes the word in a sentence. Because if it simply deletes the swearword, then the word before and after will get combined as a ngram which leads again to inaccurate statistical data. It might be better to delete entire ngrams if they contain bad words.
+
+### Building a predictive model
+
+What can be seen from the frequency distributions is that it follows an exponential distribution. This is true for ngrams of n=1 to n=4. This indicates that for a bi-gram, that if we know the first word, there are a few words for the second word with a very high likelihood and many words with a low likelihood. However, from a user experience perspective it would not make a lot of sense to show the user many possible words after he typed the first word. As the user needs to choose the options quickly 3 to 9 options are sufficient. This would mean for each prediction only the top 9 words would need to be stored in the prediction model. This has significant implications for speed and memory. 
+
+### memory and performance considerations
+
+In mobile devices reaction time of the application and memory consumption are critical issues. If the application would like to store all created 1-, 2-, 3-. 4-grams then the memory consumption would be enormous and the algorithm to predict the next word would need a lot of time to go through the dictionaries. 
+The idea is therefore to create an algorithm that has two levels:
+The first level uses the word frequency list the top 1000 words and for each word the associated 2grams and 3grams are stored. But not all of the 2/3-grams are stored, only the top 9 most frequent combinations. Given the exponential distribution of frequencies this approach should cover the biggest part of cases. Basically this would lead to tables of 1000 rows and 10 columns. 1 column for the search word and 9 columns for the 9 most probable text fragments. 
+The second level is there to cover all remaining cases. If no word can be predicted from the first step, then the words from the 1gram that are not already covered by step 1 would be suggested.
+This algorithm could be stored in simple dictionary or hash map data structures. 
+
+### Next Steps
+The next step is to do a test how long it takes to find in the describe table a given character combination. If it turns out that this in less than half a second, then it could be worth trying out such a prediction model. 
+
+
+

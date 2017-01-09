@@ -1,0 +1,158 @@
+---
+title: "Tooth Growth vs. Supplements VC and OJ"
+author: "Alexander Sickert"
+date: "25 October 2015"
+output: html_document
+---
+
+#Load Data
+
+First the data is being loaded. Then, using the str() function a first high level descriptionon of the data is being obtained. Code in Appendix 1. 
+
+```{r, echo=FALSE}
+data(ToothGrowth)
+str(ToothGrowth)
+```
+
+We learn that the data has 3 variables. It could be that there are N.A. values and we test if this is the case. Therefore we test if ther are NA values. Code in Appendix 1.  
+
+```{r, echo=FALSE, results="hide", fig.show="hide"}
+sum(is.na(ToothGrowth$len))
+sum(is.na(ToothGrowth$dose))
+sum(is.na(ToothGrowth$supp))
+```
+
+As a result we can say that the dataset
+- has 3 variables
+- 6 datasets
+- the "supp" valirable has two levels
+- the "dose" and "len" variables hare numeric
+- there are no N.A. values
+
+# Summary of Data
+
+From the previous section we learned that the dataset contains dat for two different supplements. To understand the data better the two supplements are handled separately. See Appendix 2 for the R code. 
+
+##Data for supplement "VC"
+
+To create a boxplot diagram the vairable "dosis" is being converted into a factor/level. 
+
+```{r , echo=FALSE,  fig.width=7, fig.height=4}
+VC = subset(ToothGrowth, supp == "VC" , c(len, dose))
+VC = as.data.frame(VC)
+VC$dose <- factor(VC$dose)
+boxplot(len ~ dose, data = VC, main="Dosis of VC vs. Length", xlab="Dosis VC", ylab="Length", color="red")
+```
+
+##Data for supplement "OJ"
+
+To create a boxplot diagram the vairable "dosis" is being converted into a factor/level. 
+
+```{r , echo=FALSE,  fig.width=7, fig.height=4}
+OJ = subset(ToothGrowth, supp == "OJ" , c(len, dose))
+OJ = as.data.frame(OJ)
+OJ$dose <- factor(OJ$dose)
+boxplot(len ~ dose, data = OJ, main="Dosis of OJ vs. Length", xlab="Dosis OJ", ylab="Length", color="red")
+```
+
+Comparing the two graphs OJ and VC indicates that observations in OJ are more spread out for a lower dosis. Bit graphs tell that the mean value of tooth growth increases with an increase of the dosis of the supplement. 
+
+
+#Tooth Growth by Supplement and Dose
+
+Use confidence intervals and/or hypothesis tests to compare tooth growth by supp and dose. (Only use the techniques from class, even if there's other approaches worth considering)
+
+In order to understand if an increase of dosis has an impact on tooth growth the t-test is applied. As the t-test can only compare two sets of observations the dosis 0.5 and 2 was chosen. 
+
+The Null-hypothesis for this test is: There is no difference in tooth growth between the tow sets of observations. 
+
+T-test for supplement OJ (See Appendix 3 for R code)
+```{r , echo=FALSE,  fig.width=7, fig.height=4}
+OJt = subset(OJ, dose == c(0.5,2) , c(len, dose))
+t.test(len ~ dose, paired = FALSE, val.equal=TRUE, data = OJt)
+```
+
+T-test for supplement VC (See Appendix 3 for R code)
+```{r , echo=FALSE,  fig.width=7, fig.height=4}
+VCt = subset(VC, dose == c(0.5,2) , c(len, dose))
+t.test(len ~ dose, paired = FALSE, val.equal=TRUE, data = VCt)
+```
+
+Another approach is to understand if the supplements have the same effect or if one of the supplements is more effective than the other  (See Appendix 3 for R code). 
+
+```{r , echo=FALSE,  fig.width=7, fig.height=4}
+VCOJt <- subset(ToothGrowth,select=c(len, supp)) 
+t.test(len ~ supp, paired = FALSE, val.equal=TRUE, data = VCOJt)
+```
+
+
+#Conclusions and Assumptions
+
+##Conclusion
+
+The t-test for supplement VC confirms what can be observed but the boxplot diagram: The null hypothesis must be rejected due to the very low p-value in favour of the alternative hapothesis that there is an increase tooth growth depending on the dosis. 
+
+The same conclusion can be made for the OJ supplement. 
+
+T-test for comparison of VC vs. OJ: The null hypothesis is that there is no difference between the impact of the two supplements. The high p-value indicates that null hyposesis cannot be rejected and there is no significant difference between the impact of VC and OJ on tooth growth. 
+
+##Assumptions
+
+Welch's t-test assumes that the observations are normally distributed. The analysis did not verify this. 
+
+Another assumption is that there are no other factors than the supplements which impacted the tooth growth. Correlation does not imply causation. 
+
+#Appenedix
+
+## Appendix 1: R code for loading data and initial description 
+
+```{r, results="hide", fig.show="hide"}
+data(ToothGrowth)
+str(ToothGrowth)
+```
+
+```{r, results="hide", fig.show="hide"}
+sum(is.na(ToothGrowth$len))
+sum(is.na(ToothGrowth$dose))
+sum(is.na(ToothGrowth$supp))
+```
+
+## Appendix 2: Summary of Data
+
+VC:
+
+```{r, results="hide", fig.show="hide"}
+VC = subset(ToothGrowth, supp == "VC" , c(len, dose))
+VC = as.data.frame(VC)
+VC$dose <- factor(VC$dose)
+boxplot(len ~ dose, data = VC, main="Dosis of VC vs. Length", xlab="Dosis VC", ylab="Length", color="red")
+```
+
+OJ:
+
+```{r, results="hide", fig.show="hide"}
+OJ = subset(ToothGrowth, supp == "OJ" , c(len, dose))
+OJ = as.data.frame(OJ)
+OJ$dose <- factor(OJ$dose)
+boxplot(len ~ dose, data = OJ, main="Dosis of OJ vs. Length", xlab="Dosis OJ", ylab="Length", color="red")
+```
+
+## Appendix 3: Tooth Growth by Supplement and Dose
+
+T-test for supplement OJ:
+```{r, results="hide", fig.show="hide"}
+OJt = subset(OJ, dose == c(0.5,2) , c(len, dose))
+t.test(len ~ dose, paired = FALSE, val.equal=TRUE, data = OJt)
+```
+
+T-test for supplement VC:
+```{r, results="hide", fig.show="hide"}
+VCt = subset(VC, dose == c(0.5,2) , c(len, dose))
+t.test(len ~ dose, paired = FALSE, val.equal=TRUE, data = VCt)
+```
+
+Comparing OJ with VC:
+```{r, results="hide", fig.show="hide"}
+VCOJt <- subset(ToothGrowth,select=c(len, supp)) 
+t.test(len ~ supp, paired = FALSE, val.equal=TRUE, data = VCOJt)
+```

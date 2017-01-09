@@ -1,0 +1,199 @@
+---
+title: "Assignment2"
+output: html_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+summary(cars)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+# Data Processing
+
+dataRaw = read.csv("repdata_data_StormData.csv.bz2", sep = ",", header = TRUE, as.is = TRUE)
+
+# clen data - quantifies of economic damage
+
+dataProcessing <- transform(dataRaw, PROPDMGEXP = toupper(gsub("\\s", "", PROPDMGEXP) ))
+dataProcessing <- transform(dataProcessing, CROPDMGEXP = toupper(gsub("\\s", "", CROPDMGEXP) ))
+
+
+dataProcessing <- transform(dataProcessing, PROPDMG = ifelse(PROPDMGEXP == "H", PROPDMG * 100, ifelse(PROPDMGEXP == "K", PROPDMG * 1000, ifelse(PROPDMGEXP == "M", PROPDMG * 1000000, ifelse(PROPDMGEXP == "B", PROPDMG * 1000000000, PROPDMG)))))
+
+dataProcessing <- transform(dataProcessing, CROPDMG = ifelse(CROPDMGEXP == "H", CROPDMG * 100, ifelse(CROPDMGEXP == "K", CROPDMG * 1000, ifelse(CROPDMGEXP == "M", CROPDMG * 1000000, ifelse(CROPDMGEXP == "B", CROPDMG * 1000000000, CROPDMG)))))
+
+dataProcessing$YEAR = as.numeric(format(as.Date(dataProcessing$BGN_DATE, "%m/%d/%Y"), "%Y"))
+
+
+# now we extract only the data we need for further analyis and add a column that combines the two types of economic damage
+
+dataProcessing$DAMAGE = dataProcessing$CROPDMG + dataProcessing$PROPDMG
+
+# aggregate data of economic damage
+library(sqldf) 
+dataEconomic = sqldf("select EVTYPE, avg(DAMAGE), count(DAMAGE), sum(DAMAGE)  from dataProcessing group by
+EVTYPE order by sum(DAMAGE)  desc ") 
+
+print(dataEconomic)
+
+# extract top 5
+
+dataEconomicTop = dataEconomic[1:5,c("EVTYPE", "avg(DAMAGE)", "count(DAMAGE)", "sum(DAMAGE)")]
+colnames(dataEconomicTop) <- c("EVTYPE", "AVERAGE", "COUNT", "SUM")
+print(dataEconomicTop)
+
+# plot(dataEconomicTop10$AVERAGE, dataEconomicTop10$COUNT, log="xy", type="n")
+  plot(dataEconomicTop$AVERAGE, dataEconomicTop$COUNT, type="n", , xlab="Average damage", ylab="Number of events")
+ #plot(dataEconomicTop$AVERAGE, dataEconomicTop$COUNT, labels=as.character(dataEconomicTop$EVTYPE) )
+
+text(dataEconomicTop$AVERAGE, dataEconomicTop$COUNT, labels=as.character(dataEconomicTop$EVTYPE),  cex=0.5)
+
+# show the trend of hurricanes and tornados together
+
+dataEconomicByYear = sqldf("select YEAR, sum(DAMAGE), EVTYPE   from dataProcessing where EVTYPE in ('FLOOD', 'HAIL' , 'STORM SURGE'  , 'HURRICANE/TYPHOON',  'FLOOD' ) and DAMAGE > 0  group by
+YEAR, EVTYPE order by YEAR  asc ") 
+
+# FLOOD
+
+dataEconomicByYearFlood = sqldf("select YEAR, sum(DAMAGE) as DAMAGE, EVTYPE   from dataProcessing where EVTYPE in ( 'FLOOD' ) and DAMAGE > 0  group by
+YEAR, EVTYPE order by YEAR  asc ") 
+
+print(dataEconomicByYearFlood)
+
+
+plot(dataEconomicByYearFlood$YEAR, dataEconomicByYearFlood$DAMAGE,  type="l",  xlab="Year", ylab="Damage")
+
+# HURRICANE/TYPHOON', "TORNADO
+
+dataEconomicByYearHurricane = sqldf("select YEAR, sum(DAMAGE) as DAMAGE, EVTYPE   from where EVTYPE in ( 'HURRICANE/TYPHOON', "TORNADO" ) and DAMAGE > 0  group by
+YEAR, EVTYPE order by YEAR  asc ") 
+
+lines(dataEconomicByYearHurricane$YEAR, dataEconomicByYearHurricane$DAMAGE, type="o", pch=22, lty=2, col="red")
+
+# STORM SURGE
+
+dataEconomicByYearSurge = sqldf("select YEAR, sum(DAMAGE) as DAMAGE, EVTYPE   from dataProcessing where EVTYPE in ( 'STORM SURGE' ) and DAMAGE > 0  group by
+YEAR, EVTYPE order by YEAR  asc ") 
+
+lines(dataEconomicByYearSurge$YEAR, dataEconomicByYearSurge$DAMAGE, type="o", pch=22, lty=2, col="green")
+
+# HAIL
+
+dataEconomicByYearHail = sqldf("select YEAR, sum(DAMAGE) as DAMAGE, EVTYPE   from dataProcessing where EVTYPE in ( 'HAIL' ) and DAMAGE > 0  group by
+YEAR, EVTYPE order by YEAR  asc ") 
+
+lines(dataEconomicByYearHail$YEAR, dataEconomicByYearHail$DAMAGE, type="o", pch=22, lty=2, col="blue")
+
+# legend
+g_range <- range(0, dataEconomicByYearHail, dataEconomicByYearSurge)
+legend(1, g_range[2], c("Flood","HURRICANE/TYPHOON/TORNADO", "STORM SURGE", "HAIL"), cex=0.8, 
+   col=c("blue","red"), pch=21:22, lty=1:2);
+
+
+# aggregate data of fatalities
+
+
+dataFatalities = sqldf("select EVTYPE, avg(FATALITIES), count(FATALITIES), sum(FATALITIES)  from dataProcessing group by
+EVTYPE order by sum(FATALITIES)  desc ") 
+
+print(dataFatalities)
+
+# extract top 5
+
+dataFatalitiesTop = dataFatalities[1:10,c("EVTYPE", "avg(FATALITIES)", "count(FATALITIES)", "sum(FATALITIES)")]
+colnames(dataFatalitiesTop) <- c("EVTYPE", "AVERAGE", "COUNT", "SUM")
+print(dataFatalitiesTop)
+
+plot(dataFatalitiesTop$COUNT, dataFatalitiesTop$SUM )
+
+plot(dataFatalitiesTop$COUNT, dataFatalitiesTop$SUM,  type="n", , xlab="Number of Events", ylab=" # Fatalities")
+# Total
+text(dataFatalitiesTop$COUNT, dataFatalitiesTop$SUM, labels=as.character(dataFatalitiesTop$EVTYPE),  cex=0.5)
+
+# sqrt(dfx$ev3/pi)
+
+
+
+vyxcvyxcvyxcv
+
+# plot nuber of events vs. sum of all fatalities
+
+  plot(dataEconomicTop$AVERAGE, dataEconomicTop$COUNT, type="n", , xlab="Average damage", ylab="Number of events")
+ #plot(dataEconomicTop$AVERAGE, dataEconomicTop$COUNT, labels=as.character(dataEconomicTop$EVTYPE) )
+
+text(dataEconomicTop$AVERAGE, dataEconomicTop$COUNT, labels=as.character(dataEconomicTop$EVTYPE),  cex=0.5)
+
+
+# HURRICANE/TYPHOON
+
+dataTEST = sqldf("select *  from dataRaw WHERE  EVTYPE = 'HURRICANE/TYPHOON' ") 
+write.csv(dataTEST, "dataTEST.csv")
+ 
+dataFatalities = sqldf("select EVTYPE, avg(FATALITIES), count(FATALITIES) from dataProcessing group by
+EVTYPE order by count(FATALITIES) desc ") 
+
+print(dataFatalities)
+
+
+fatalitiesByEvent <- aggregate(data["FATALITIES"], by=data[c("EVTYPE")], FUN=sum)
+write.csv(fatalitiesByEvent, "fatalitiesByEvent.csv")
+
+countByEvent <- aggregate(data["FATALITIES"], by=data[c("EVTYPE")], FUN=length)
+
+countByEventandSum = aggregate(data, list(y), FUN=cbind(mean(x), median(x))) 
+
+library(sqldf) 
+ 
+countByEventandSum = sqldf("select EVTYPE, avg(FATALITIES), count(FATALITIES) from data group by
+EVTYPE order by count(FATALITIES) desc ") 
+
+print(countByEventandSum)
+
+
+write.csv(data[850000:900000,], "tmp.csv")
+
+
+res = unique(data$PROPDMGEXP, incomparables = FALSE)
+print(res)
+PROPDMGEXP
+CROPDMGEXP
+ifelse(a %% 2 == 0,"even","odd")
+
+dataPropertyDamage = data
+
+dataPropertyDamage <- transform(dataPropertyDamage, est = ifelse(PROPDMGEXP == "K", (a - 5)/2.53, est))
+
+---------------
+clean data
+
+
+
+damageByEvent <- aggregate(dataPropertyDamage["PROPDMG"], by=dataPropertyDamage[c("EVTYPE")], FUN=sum)
+
+
+res = damageByEvent[,c("PROPDMG","EVTYPE")]
+
+resTop = res[order(res$PROPDMG,decreasing=TRUE)[1:20],]
+print(resTop)
+
+
+
+write.csv(dataPropertyDamage[880000:900000,], "dataPropertyDamage.csv")
+
+
+
+dataPropertyDamage = data
+
+head(data)

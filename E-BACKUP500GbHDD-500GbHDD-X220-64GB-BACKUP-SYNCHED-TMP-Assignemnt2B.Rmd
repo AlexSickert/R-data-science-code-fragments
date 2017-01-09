@@ -1,0 +1,219 @@
+---
+title: "Weather Events and its Damages - Hurricane, Heat and Flood biggest problem"
+author: "Alexander Sickert"
+date: "21 July 2015"
+output: html_document
+---
+
+# Synopsis
+
+The following analysis is built on the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database which covers a time from from 1950 to 2011. 
+The goal of the analysis is to highlight the events that are most harmful for man and economically most damaging. 
+
+The results are
+
+- Flood and Hurricane/Tornado events are economically most devastating
+- Looking into trends both event types are increasing in quantity over time. 
+- Tornados and excessive head cause most fatalities
+
+As a result I recommend that government takes more measures to prevent fatalities during heat periods. I also recommend investigating how the damages can be reduced for example by not allowing houses being built in risky areas.
+
+
+
+
+# Data Processing
+
+Loading raw data
+```{r, cache=TRUE }
+dataRaw = read.csv("repdata_data_StormData.csv.bz2", sep = ",", header = TRUE, as.is = TRUE)
+```
+
+###Clean data - quantifies of economic damage
+
+To be able to aggregate data about economic damage the characters need be converted into numbers and multiplied with the decimal value of damage.
+```{r, echo=FALSE}
+
+dataProcessing <- transform(dataRaw, PROPDMGEXP = toupper(gsub("\\s", "", PROPDMGEXP) ))
+dataProcessing <- transform(dataProcessing, CROPDMGEXP = toupper(gsub("\\s", "", CROPDMGEXP) ))
+
+dataProcessing <- transform(dataProcessing, PROPDMG = ifelse(PROPDMGEXP == "H", PROPDMG * 100, ifelse(PROPDMGEXP == "K", PROPDMG * 1000, ifelse(PROPDMGEXP == "M", PROPDMG * 1000000, ifelse(PROPDMGEXP == "B", PROPDMG * 1000000000, PROPDMG)))))
+
+dataProcessing <- transform(dataProcessing, CROPDMG = ifelse(CROPDMGEXP == "H", CROPDMG * 100, ifelse(CROPDMGEXP == "K", CROPDMG * 1000, ifelse(CROPDMGEXP == "M", CROPDMG * 1000000, ifelse(CROPDMGEXP == "B", CROPDMG * 1000000000, CROPDMG)))))
+
+# calculating total damage = property damange + crop damange
+dataProcessing$DAMAGE = dataProcessing$CROPDMG + dataProcessing$PROPDMG
+```
+
+Adding an additional column that holds the year of the event. It is extraced from the date of the event. 
+
+```{r, echo=FALSE}
+
+# adding a year for later comparison based on years
+
+dataProcessing$YEAR = as.numeric(format(as.Date(dataProcessing$BGN_DATE, "%m/%d/%Y"), "%Y"))
+```
+
+
+
+
+# Analysis
+
+###Aggregating  data of economic damage
+
+The aim is to find out which event causes the biggest damage, how many events occur and what the average damage of an event is. 
+
+```{r}
+library(sqldf) 
+dataEconomic = sqldf("select EVTYPE, avg(DAMAGE), count(DAMAGE), sum(DAMAGE)  from dataProcessing group by
+EVTYPE order by sum(DAMAGE)  desc ") 
+
+# print(dataEconomic)
+
+```
+
+###Extract the top 10 event types
+
+As the list of events is very long we take into consideration only the top ten events. 
+```{r}
+dataEconomicTop = dataEconomic[1:10,c("EVTYPE", "avg(DAMAGE)", "count(DAMAGE)", "sum(DAMAGE)")]
+colnames(dataEconomicTop) <- c("EVTYPE", "AVERAGE", "COUNT", "SUM")
+print(dataEconomicTop)
+```
+
+
+###Development of damaging events over time
+
+As a next step we analyze how the biggest event types develop over time to see if there are trends 
+
+```{r}
+
+# FLOOD
+
+dataEconomicByYearFlood = sqldf("select YEAR, count(*) as EVENTS from dataProcessing where trim(EVTYPE) in ( 'FLOOD' ) and DAMAGE > 0  group by YEAR order by YEAR  asc ") 
+
+# print(dataEconomicByYearFlood)
+
+plot(dataEconomicByYearFlood$YEAR, dataEconomicByYearFlood$EVENTS,  type="l",  xlab="Year", ylab="# of Events", ylim=c(0,3000), col="black")
+
+# HURRICANE/TYPHOON', "TORNADO
+
+dataEconomicByYearHurricane = sqldf("select YEAR, count(*) as EVENTS from dataProcessing where trim(EVTYPE) in ( 'HURRICANE/TYPHOON', 'TORNADO', 'HURRICANE' ) and DAMAGE > 0  group by
+YEAR order by YEAR  asc ") 
+
+# print(dataEconomicByYearHurricane)
+
+lines(dataEconomicByYearHurricane$YEAR, dataEconomicByYearHurricane$EVENTS, type="l", pch=22, lty=1, col="red")
+
+
+# STORM SURGE
+
+dataEconomicByYearSurge = sqldf("select YEAR, count(*) as EVENTS   from dataProcessing where trim(EVTYPE) in ( 'STORM SURGE' ) and DAMAGE > 0  group by
+YEAR order by YEAR  asc ")
+
+# print(dataEconomicByYearSurge)
+
+lines(dataEconomicByYearSurge$YEAR, dataEconomicByYearSurge$EVENTS, type="l", pch=22, lty=1, col="green")
+
+# HAIL
+
+dataEconomicByYearHail = sqldf("select YEAR, count(*) as EVENTS   from dataProcessing where trim(EVTYPE) in ( 'HAIL' ) and DAMAGE > 0  group by
+YEAR order by YEAR  asc ") 
+
+# print(dataEconomicByYearHail)
+
+lines(dataEconomicByYearHail$YEAR, dataEconomicByYearHail$EVENTS, type="l", pch=22, lty=1, col="blue")
+
+legend(1995,2900, c('Flood','Hurricane','Surge','Hail'),  lty=c(1,1,1,1), col=c('black','red' ,'green','blue') ) 
+
+title("# of Economic Damage Events Over Time")
+
+
+```
+
+##aggregate data of fatalities
+
+The aim is to find out which event causes the biggest number of fatalities, how many events occur and what the average number of fatalities of an event is. 
+
+```{r}
+dataFatalities = sqldf("select EVTYPE, avg(FATALITIES), count(FATALITIES), sum(FATALITIES)  from dataProcessing group by
+EVTYPE order by sum(FATALITIES)  desc ") 
+
+# print(dataFatalities)
+
+```
+
+###Extract top 10
+
+As there are many different events the analysis focuses on the ten event types with biggest total number of fatalities. 
+
+```{r}
+dataFatalitiesTop = dataFatalities[1:10,c("EVTYPE", "avg(FATALITIES)", "count(FATALITIES)", "sum(FATALITIES)")]
+colnames(dataFatalitiesTop) <- c("Event Type", "Avg. Fatalities per Event", "# Events", "SUM of Fatalities")
+print(dataFatalitiesTop)
+
+```
+
+###Display development of events over time
+
+To see if there are trends over time the event types that cause most fatalities are displayed over time. Several events that fall under the term "wind" can be grouped together. 
+
+```{r}
+# 'TORNADO' , 'HIGH WIND', 'TSTM WIND'
+
+dataFatalitiesByYearWind = sqldf("select YEAR, count(*) as EVENTS from dataProcessing where trim(EVTYPE) in ('TORNADO' , 'HIGH WIND', 'TSTM WIND' ) and FATALITIES > 0  group by YEAR order by YEAR  asc ") 
+
+print(dataFatalitiesByYearWind)
+
+plot(dataFatalitiesByYearWind$YEAR, dataFatalitiesByYearWind$EVENTS,  type="l",  xlab="Year", ylab="# of Events", ylim=c(0,100), col="black")
+
+# 'EXCESSIVE HEAT', 'HEAT'
+
+dataFatalitiesByYearHeat = sqldf("select YEAR, count(*) as EVENTS from dataProcessing where trim(EVTYPE) in ( 'EXCESSIVE HEAT', 'HEAT' ) and FATALITIES > 0  group by YEAR order by YEAR  asc ") 
+
+print(dataFatalitiesByYearHeat)
+
+lines(dataFatalitiesByYearHeat$YEAR, dataFatalitiesByYearHeat$EVENTS, type="l", pch=22, lty=1, col="red")
+
+# make lines and legend
+
+
+legend(1950,95, c('Wind','Heat'),  lty=c(1,1,1), col=c('black','red') ) 
+
+title("# of Fatalities of Heat and Wind Events Over Time")
+
+
+```
+
+
+###Display Flood events
+
+
+```{r}
+
+# FLASH FLOOD  FLOOD 
+
+dataFatalitiesByYearFlood = sqldf("select YEAR, count(*) as EVENTS from dataProcessing where trim(EVTYPE) in ( 'FLASH FLOOD',  'FLOOD'  ) and FATALITIES > 0  group by YEAR order by YEAR  asc ") 
+
+print(dataFatalitiesByYearFlood)
+
+plot(dataFatalitiesByYearFlood$YEAR, dataFatalitiesByYearFlood$EVENTS,  type="l",  xlab="Year", ylab="# of Events", ylim=c(0,250), col="black")
+
+title("# of Flood Events Over Time")
+
+```
+
+# Results 
+
+### Restults on Economic Damage
+
+- Flood and Wind related events are most damaging. 
+- Damages from surge sopped after 2005. This might be a data collection error. 
+- Damages from wind related events and flood are getting more since 2005
+
+
+### Restults on Fatalities
+
+- Tornado, Head and Flood events cause the most fatalities
+- Heat events are shown in the database only since 1994. This can distort the analaysis. 
+- Flood events show an increasing trend of occurence. 
+

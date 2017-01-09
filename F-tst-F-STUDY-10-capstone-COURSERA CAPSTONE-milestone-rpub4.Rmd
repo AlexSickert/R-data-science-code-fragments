@@ -1,0 +1,105 @@
+
+---
+title: "Coursrea Capstone: Milestone"
+author: "Alex Sickert"
+date: "September 5, 2016"
+output: html_document
+---
+
+
+## Loading and preprocessing the data
+
+Precondition: set the working directory to your directory by using setwd();
+
+```{r, echo=TRUE}
+library(tm)
+library(slam)
+library(RWeka)
+library(parallel)
+library(ggplot2) 
+library(dplyr)
+options(mc.cores= detectCores() )
+
+#setwd("C:\\Users\xandi\Documents\COURSERA-CAPSTONE\Text-Files-Given\en_US")
+#data <- read.csv("en_US.twitter.txt", header=FALSE, stringsAsFactors=FALSE)
+
+conn <- file("C:\\Users\\xandi\\Documents\\COURSERA-CAPSTONE\\Text-Files-Given\\en_US\\en_US.twitter.txt",open="r")
+data <-readLines(conn)
+#dataPart <- data[1:1000]
+
+dataPart <- sample(data, 1000, replace = FALSE, prob = NULL)
+
+head(dataPart)
+
+```
+
+
+Then we do some data cleansing
+
+```{r, echo=TRUE}
+corpus <- Corpus(VectorSource(dataPart)) # create corpus for TM processing
+corpus <- tm_map(corpus, content_transformer(tolower))  #we do this only for English, for German it would not be a good idea 
+corpus <- tm_map(corpus, removeNumbers) # we are not interested in numbers
+corpus <- tm_map(corpus, removePunctuation) #punctuation does not play a role in our case
+corpus <- tm_map(corpus, stripWhitespace)  #a further cleanup
+#corpus <- tm_map(corpus, language = "english")  
+corpus <- tm_map(corpus, PlainTextDocument)   
+
+```
+
+##  What are the frequencies of n-grams with n=1 to 4 in the dataset?
+
+We create a function 
+
+```{r, echo=TRUE}
+
+processNGram <- function(corpus, ngram){
+  
+  BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = ngram, max = ngram))
+  tdm <- TermDocumentMatrix(corpus, control = list(tokenize = BigramTokenizer))
+
+  temp <- row_sums(tdm)
+  df <- as.data.frame(temp)
+  df$Words <- row.names(df)
+
+  names(df) <- c('Frequency','Words')
+  rownames(df) <- NULL
+
+  df <- transform(df, Words = reorder(Words, Frequency))
+  df <- arrange(df, desc(Frequency))
+
+  title <- paste("Frequency of n-grams for for the top 500 frequencies with n=", ngram, sep=" ")
+  plot(df$Frequency[1:500], main = title, ylab = "Frequency", xlab = "Index and Order in sorted data frame", type="l")
+
+
+  #twoGramPlot[ngram] <- ggplot(df[1:30,], aes(Words, Frequency)) +
+  #geom_bar(stat = 'identity') + coord_flip() +
+  #ggtitle('Top 30 n-grams') +  xlab(NULL)
+
+  #twoGramPlot[ngram]
+  
+  
+  title <- paste("Top 30 n-grams for n=", ngram, sep=" ")
+  
+  print(ggplot(df[1:30,], aes(Words, Frequency)) +
+  geom_bar(stat = 'identity') + coord_flip() +
+  ggtitle(title) +  xlab(NULL))
+  
+}
+
+
+
+
+for (i in 1:4){
+  processNGram(corpus, i)
+}
+ 
+
+```
+
+
+
+
+pWordLists <- list("http://www.bannedwordlist.com/lists/swearWords.txt", 
+                       "http://www.cs.cmu.edu/~biglou/resources/bad-words.txt")
+

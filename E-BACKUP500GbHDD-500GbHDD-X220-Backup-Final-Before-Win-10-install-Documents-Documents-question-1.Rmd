@@ -1,0 +1,81 @@
+---
+title: "Simulating the Central Limit Theorem Using the Exponential Eistribution"
+author: "Alexander Sickert"
+date: "27 September 2015"
+output: html_document
+---
+
+
+   
+#Overview: 
+
+This project investigates several features of the Central Limit Theorem using the exponential distribution. The exponential distribution is being applied using lambda = 0.2.
+
+#Simulations: 
+
+##Sample Mean versus Theoretical Mean: 
+
+The mean of exponential distribution is 1/lambda. With a lambda of 0.2 the theoretical mean is 5.
+
+The following code takes 1000 averages of 40 exponentials. The sample growths from 1 to 1000 and for each step the mean is being calculated. 
+
+
+```{r}
+n <- 1000; 
+means = c()
+meanValueCumulative = 0
+for (i in 1 : n){
+  meanValue = mean(rexp(40, 0.2))
+  meanValueCumulative = meanValueCumulative + meanValue
+  meanNow = meanValueCumulative / i 
+  means = c(means, meanNow)
+} 
+
+plot(1 : n, means, type = "l", lwd = 2, frame = FALSE, ylab = "cumulative means", xlab = "sample size") 
+
+abline(h = 5)
+```
+
+It can be observed that the mean is increasingly moving towards the theoretical mean of 5 
+
+##Sample Variance versus Theoretical Variance 
+
+The variance of exponential distribution is 1/lambda^2. With a lambda of 0.2 the theoretical variance is 25.
+
+The following code takes 1000 averages of 40 exponentials. The sample growths from 1 to 1000 and for each step the variance is being calculated. 
+
+```{r}
+n <- 1000; 
+means = c()
+meanValueCumulative = 0
+for (i in 1 : n){
+  meanValue = var(rexp(40, 0.2))
+  meanValueCumulative = meanValueCumulative + meanValue
+  meanNow = meanValueCumulative / i 
+  means = c(means, meanNow)
+} 
+
+plot(1 : n, means, type = "l", lwd = 2, frame = FALSE, ylab = "cumulative variance", xlab = "sample size") 
+
+abline(h = 25)
+```
+
+It can be observed that the variance is increasingly moving towards the theoretical variance of 25. 
+
+##Distribution
+
+The following code takes 1000 averages of 40 exponentials. Then a histogram is being created. In addition a normal curve is being displayed in red color.  
+
+```{r}
+mns = NULL
+for (i in 1 : 1000) mns = c(mns, mean(rexp(40, 0.2)-5))
+hist(mns, freq = FALSE, col = "grey")
+curve(dnorm, col = 2, add = TRUE)
+```
+
+It can be observed tha the shape of the histogram is similar to a normal distribution. This effect becomes more visible if we as an alternative use 1000 exponentials and create a histogram of them. The resutling historgram has exponential shape and not normal shape.  
+
+```{r}
+vals = rexp(1000, 0.2)
+hist(vals, freq = FALSE, col = "grey")
+```

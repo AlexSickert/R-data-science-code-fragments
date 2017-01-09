@@ -1,0 +1,149 @@
+---
+title: "Regression Models - Course Project MTCARS"
+author: "Alexander Sickert"
+date: "22 November 2015"
+output: 
+  html_document: 
+    fig_height: 4
+    fig_width: 6
+---
+
+
+## Executive Summary
+
+The aim of this analysis is to explore the relationship between a set of variables and miles per gallon (MPG) (outcome). Two central questions should be answered:
+
+a) Is an automatic or manual transmission better for MPG?
+b) Quantify the MPG difference between automatic and manual transmissions
+
+The dataset used for the analysis was extracted from the 1974 Motor Trend US magazine.
+
+The result of the analysis:
+
+a) On average a manual transmission is better for MPG
+b) If we ignore all other parameters of the data, manual transmission has ***7.3*** higher MPG wiht a 95% confidence interval of ***3.2*** to ***11.3***. However, if we use a model that includes 3 predictors, then the automatic/manual predictor accounts for ***2.94*** increase in MPG when moving from automatic to manual with a 95% confidence interval of ***0.05 - 5.83*** mpg.
+
+## Exploratory Analysis
+
+First we have a high level look into the dataset. See  ***Appendix: First Look. *** 
+
+The datasets consists of 11 variables and does  not have incomplete records. 
+
+A simple bos plot provides a first look at the difference in MPG depending on Automatic and Manual. It indicates a difference in MPG. See  ***Appendix: Boxplot ***
+
+Based on this finding we can quantify the differences using a t-test. See  ***Appendix: T-Test.  ***
+
+**We learn that on average an automatic transmission consumes more fuel than a manual transmission (17.1 vs. 24.4 mpg). The 95% confidence interval of the difference is 3.2 - 11.3.  **
+
+It is desirable that the outcome (MPG) is normal distrubuted and hence we check it with a histogram, see Appendix:Histogram. According to the histogram the data is not exactly normal distributed but we assume it is sufficiently similar to a normal distribution. 
+
+## Model Selection
+
+From the exploratory analysis we could conclude a simple linear regression using Automatic/Manual as the predictor could be sufficient. ***See Appendix: Simple Model***
+
+What we learn is this: As the P-value is low, we can reject the null hypothesis that there is no difference between Manual and Automatic. However, the parameter explains only  ***34% *** of the variance that we can observe in mpg. Therefore we want to find a better model. 
+
+We could do a manual proeces and start with a model that includes all varables and then and step by step eliminate the variables that do not have significant impact on the outcome. A starting point for such a process is the list of coefficients, See  ***Appendix:Coefficients ***
+
+For example the parameters cyl and carb have low impact on the outcome and a high p-value and we could construct a new model. However, there exists in R a function that does all that automatically. See  ***Appendix: Stepwise *** 
+
+This model contains only three predictors: wt, qsec and am. The model is able to explain  ***83% *** of the variance in mpg. We therefore consider this model a good candidate for further diagnostics. 
+
+
+## Further Exploratory Analysis and Diagnostics 
+
+To see if our model appears reasonable we plot all 3 parameters  against each other. See  ***Appendix: Pairs ***
+
+
+If the model is suitable, then we should not find particular  patterns when we carry out a residual plot. See  ***Appendix: Residual Plot ***
+
+We cannot observe a pattern that would indicate that the model is not suitable. 
+
+Finally we want to quantify the findings. We learn from the summary that the thee is an estimated increase in mpg of **2.94** when moving from automatic to manual. See  ***Appendix: Summary & Coefficients ***
+
+The **95%** confidence interval for this finding is **0.05 - 5.83**. 
+
+## Appendix
+
+### First look
+
+```{r}
+data("mtcars")
+str(mtcars)
+```
+
+### Boxplot
+
+```{r}
+mtcarsMod = mtcars
+mtcarsMod$am <- as.factor(mtcarsMod$am)
+levels(mtcarsMod$am) <- c("Automatic","Manual") 
+boxplot(mpg ~ am, data = mtcarsMod, ylab = "MPG", main = "Miles per Gallon vs. Transmission Type")
+```
+
+### T-Test
+```{r}
+mtcarsAutomatic <- mtcarsMod[mtcarsMod$am == "Automatic", ] 
+mtcarsManual = mtcarsMod[mtcarsMod$am == "Manual", ] 
+t.test(mtcarsAutomatic$mpg, mtcarsManual$mpg)
+average = 24.4 - 17.1
+average
+```
+
+### Histogram
+
+```{r}
+hist(mtcars$mpg, breaks = 10, xlab = "MPG", main = "Histogram MPG")
+```
+
+### Simple Model 
+
+
+```{r}
+fit = lm(mpg ~ am, data = mtcarsMod)
+summary(fit)
+```
+
+### Coefficients
+
+```{r}
+summary(lm(mpg ~ ., data = mtcars))$coefficients
+```
+
+### Stepwise
+
+```{r}
+stepwise = step(lm(data = mtcarsMod, mpg ~ .), trace = 0 )
+summary(stepwise)
+```
+
+### Pairs
+
+```{r}
+mtcarsMod = mtcars
+mtcarsMod$am <- as.factor(mtcarsMod$am)
+levels(mtcarsMod$am) <- c("Automatic","Manual") 
+pairs(mtcarsMod[, c("mpg", "wt", "qsec", "am")], panel = panel.smooth, main = "Relationship of all 4 paramters")
+```
+
+### Residual Plot
+
+```{r}
+optiModel = lm(mpg ~ am + wt + qsec, data = mtcarsMod)
+par(mfrow=c(2,2))
+plot(optiModel)
+```
+
+### Summary & Coefficients
+
+```{r}
+summary(optiModel)
+```
+
+```{r}
+coef = summary(optiModel)$coefficients
+estimate = coef["amManual", 1] 
+interval = estimate + c(-1, 1) * qt(0.975, df = optiModel$df) * coef["amManual", 2]
+interval
+```
+

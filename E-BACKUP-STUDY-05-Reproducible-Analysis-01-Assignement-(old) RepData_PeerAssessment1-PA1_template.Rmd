@@ -1,0 +1,112 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "Alex Sickert"
+date: "June 14, 2015"
+output: html_document
+---
+
+
+
+## Loading and preprocessing the data
+
+
+
+```{r, echo=TRUE}
+myData <-read.csv("activity.csv", sep = ",", header = TRUE, as.is = TRUE)
+```
+
+
+## What is mean total number of steps taken per day?
+
+```{r, echo=TRUE}
+stepsPerDay <- aggregate(myData["steps"], by=myData[c("date")], FUN=sum)
+print(stepsPerDay)
+```
+
+
+
+```{r, echo=TRUE}
+res <- aggregate(myData["steps"], by=myData[c("date")], FUN=sum)
+myHist =  res[,2]
+hist(myHist, main="Histogram", xlab="Number of steps per day", ylab="Frequency")
+```
+
+
+Mean and Median calculation
+
+```{r, echo=TRUE}
+myMedian = median(myHist, na.rm = TRUE)
+print("Median:")
+print(myMedian)
+myMean = mean(myHist, na.rm = TRUE)
+print("Mean:")
+print(myMean)
+```
+
+
+## What is the average daily activity pattern?
+
+```{r, echo=TRUE}
+res <- aggregate(myData["steps"], by=myData[c("interval")], FUN=mean, na.rm=TRUE)
+print(res)
+plot(res$interval, res$steps, type="l", xlab= "Interval", ylab= "Mean steps",  lwd=2)
+```
+
+Interval with most steps
+```{r, echo=TRUE}
+rowIndex = which.max( res[,2] )
+print(res[rowIndex,])
+```
+
+## Imputing missing values
+
+Number of missing steps
+
+```{r, echo=TRUE}
+missing = sum(is.na(myData$steps))
+print(missing)
+```
+
+
+Strategey to fill values: If there is a NA then we use the value of the interval before. And if the interval before is also NA then we use zero
+
+```{r, echo=TRUE}
+myFilledData = myData
+lastValue = 0 
+for(i in 1:length(myFilledData$steps)){
+  if(is.na(myFilledData[i,1]) ){
+    myFilledData[i,1] = lastValue
+  }else{
+    lastValue = myFilledData[i,1]
+  }
+}
+```
+
+
+Historgram for filled dataset 
+
+```{r, echo=TRUE}
+resFilled <- aggregate(myFilledData["steps"], by=myFilledData[c("date")], FUN=sum)
+myHistFilled =  resFilled[,2]
+hist(myHistFilled, main="Histogram with filled data", xlab="Number of steps per day", ylab="Frequency")
+```
+
+
+
+Mean and Median calculation for filled dataset
+
+```{r, echo=TRUE}
+myMedianFilled = median(myHistFilled, na.rm = TRUE)
+print("Median:")
+print(myMedianFilled)
+myMeanFilled = mean(myHistFilled, na.rm = TRUE)
+print("Mean:")
+print(myMeanFilled)
+```
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+
+
+
